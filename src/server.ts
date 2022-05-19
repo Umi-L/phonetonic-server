@@ -7,6 +7,7 @@ import * as packet from "./packets"
 const canvasWidth: number = 400;
 const canvasHeight: number = 400;
 
+let gameStarted = false;
 
 export interface ExtWebSocket extends WebSocket {
     isAlive: boolean;
@@ -15,6 +16,7 @@ export interface ExtWebSocket extends WebSocket {
 
 interface PlayerData{
     username:string
+    isPartyLeader: boolean;
 }
 
 interface IClients {
@@ -52,7 +54,18 @@ wss.on("connection", (_ws: WebSocket) => {
 
         switch(jsonData.method){
             case "connect":
-                clients[ws.uuid].username = jsonData.username;
+                clients[ws.uuid].username = safe_tags(jsonData.username);
+                if(Object.keys(clients).length == 1){
+                    clients[ws.uuid].isPartyLeader = true;
+                }
+            case "getPlayers":
+                let data:any = {
+                    method:"updateUsers",
+                    data:clients
+                }
+
+                ws.send(JSON.stringify(data));
+
         }
 
         console.log(message + ` from id: ${ws.uuid}, username: ${clients[ws.uuid].username}`);
@@ -97,8 +110,13 @@ function newPlayer(uuid:number): void{
 
     //init default data
     let data:PlayerData = {
-        username: "undefined"
+        username: "undefined",
+        isPartyLeader: false,
     }
 
     clients[uuid] = data;
+}
+
+function safe_tags(str:string) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') ;
 }

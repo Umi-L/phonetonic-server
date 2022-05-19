@@ -5,6 +5,7 @@ const http = require("http");
 const WebSocket = require("ws");
 const canvasWidth = 400;
 const canvasHeight = 400;
+let gameStarted = false;
 const clients = {};
 const app = express();
 //initialize a simple http server
@@ -28,6 +29,11 @@ wss.on("connection", (_ws) => {
         switch (jsonData.method) {
             case "connect":
                 clients[ws.uuid].username = jsonData.username;
+                if (Object.keys(clients).length == 1) {
+                    clients[ws.uuid].isPartyLeader = true;
+                }
+            case "getPlayers":
+                ws.send(JSON.stringify(clients));
         }
         console.log(message + ` from id: ${ws.uuid}, username: ${clients[ws.uuid].username}`);
     });
@@ -63,7 +69,8 @@ function genUUID() {
 function newPlayer(uuid) {
     //init default data
     let data = {
-        username: "undefined"
+        username: "undefined",
+        isPartyLeader: false,
     };
     clients[uuid] = data;
 }
