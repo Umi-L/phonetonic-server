@@ -15,6 +15,10 @@ wss.on("connection", (_ws) => {
     let ws = _ws;
     ws.uuid = genUUID();
     newPlayer(ws.uuid);
+    ws.onclose = () => {
+        delete clients[ws.uuid];
+        broadcastPlayerUpdate();
+    };
     //connection is up, let's add a simple simple event
     ws.on("message", (message) => {
         let jsonData;
@@ -30,9 +34,15 @@ wss.on("connection", (_ws) => {
                 clients[ws.uuid].username = jsonData.username;
                 break;
             case "getPlayers":
-                let data = { method: "updateUsers", data: clients };
-                broadcast(JSON.stringify(data));
+                broadcastPlayerUpdate();
                 break;
+            case "getSelf":
+                console.log("get self recieved");
+                let data = {
+                    method: "sendSelf",
+                    data: clients[ws.uuid]
+                };
+                ws.send(JSON.stringify(data));
         }
     });
 });
@@ -70,5 +80,9 @@ function broadcast(message) {
         const ws = _ws;
         ws.send(message);
     });
+}
+function broadcastPlayerUpdate() {
+    let data = { method: "updateUsers", data: clients };
+    broadcast(JSON.stringify(data));
 }
 //# sourceMappingURL=server.js.map

@@ -1,6 +1,5 @@
 import * as express from "express";
 import * as http from "http";
-import { send } from "vite";
 import * as WebSocket from "ws";
 
 import * as packet from "./packets"
@@ -39,6 +38,12 @@ wss.on("connection", (_ws: WebSocket) => {
 
     newPlayer(ws.uuid);
 
+    ws.onclose = () =>{
+        delete clients[ws.uuid];
+
+        broadcastPlayerUpdate();
+    }
+
     //connection is up, let's add a simple simple event
     ws.on("message", (message: string) => {
         
@@ -57,13 +62,24 @@ wss.on("connection", (_ws: WebSocket) => {
                 clients[ws.uuid].username = jsonData.username;
                 break;
             case "getPlayers":
-                let data:any = {method: "updateUsers", data: clients};
-
-                broadcast(JSON.stringify(data));
+                broadcastPlayerUpdate();
                 break;
+            case "getSelf":
+
+                console.log("get self recieved")
+
+                let data = {
+                    method: "sendSelf",
+                    data: clients[ws.uuid]
+                }
+
+                ws.send(JSON.stringify(data));
+
         }
     });
 });
+
+
 
 
 // setInterval(() => {
@@ -112,4 +128,10 @@ function broadcast(message:string){
 
         ws.send(message);
     })
+}
+
+function broadcastPlayerUpdate(){
+    let data:any = {method: "updateUsers", data: clients};
+
+    broadcast(JSON.stringify(data));
 }
