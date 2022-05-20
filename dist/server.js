@@ -5,7 +5,6 @@ const http = require("http");
 const WebSocket = require("ws");
 const canvasWidth = 400;
 const canvasHeight = 400;
-let gameStarted = false;
 const clients = {};
 const app = express();
 //initialize a simple http server
@@ -23,38 +22,31 @@ wss.on("connection", (_ws) => {
             jsonData = JSON.parse(message);
         }
         catch (error) {
-            console.error("invalid json");
+            console.log("invalid json");
             return;
         }
         switch (jsonData.method) {
             case "connect":
                 clients[ws.uuid].username = jsonData.username;
-                if (Object.keys(clients).length == 1) {
-                    clients[ws.uuid].isPartyLeader = true;
-                }
+                break;
             case "getPlayers":
-                ws.send(JSON.stringify(clients));
+                let data = { method: "updateUsers", data: clients };
+                broadcast(JSON.stringify(data));
+                break;
         }
-        console.log(message + ` from id: ${ws.uuid}, username: ${clients[ws.uuid].username}`);
     });
-    //send immediatly a feedback to the incoming connection
-    ws.send("connected to game!");
 });
-/*
-setInterval(() => {
-    wss.clients.forEach((_ws: WebSocket) => {
-        const ws = _ws as ExtWebSocket;
-
-        if (!ws.isAlive) {
-            console.log("termenated " + ws.uuid);
-            return ws.terminate();
-        }
-
-        ws.isAlive = false;
-        ws.ping(null, false);
-    });
-}, 10000);
-*/
+// setInterval(() => {
+//     wss.clients.forEach((_ws: WebSocket) => {
+//         const ws = _ws as ExtWebSocket;
+//         if (!ws.isAlive) {
+//             console.log("termenated " + ws.uuid);
+//             return ws.terminate();
+//         }
+//         ws.isAlive = false;
+//         ws.ping(null, false);
+//     });
+// }, 10000);
 //start our server
 server.listen(process.env.PORT || 8999, () => {
     console.log(`Server started on port ${server.address().port}`);
@@ -69,9 +61,14 @@ function genUUID() {
 function newPlayer(uuid) {
     //init default data
     let data = {
-        username: "undefined",
-        isPartyLeader: false,
+        username: "undefined"
     };
     clients[uuid] = data;
+}
+function broadcast(message) {
+    wss.clients.forEach((_ws) => {
+        const ws = _ws;
+        ws.send(message);
+    });
 }
 //# sourceMappingURL=server.js.map

@@ -1,5 +1,6 @@
 import * as express from "express";
 import * as http from "http";
+import { send } from "vite";
 import * as WebSocket from "ws";
 
 import * as packet from "./packets"
@@ -7,7 +8,6 @@ import * as packet from "./packets"
 const canvasWidth: number = 400;
 const canvasHeight: number = 400;
 
-let gameStarted = false;
 
 export interface ExtWebSocket extends WebSocket {
     isAlive: boolean;
@@ -16,7 +16,6 @@ export interface ExtWebSocket extends WebSocket {
 
 interface PlayerData{
     username:string
-    isPartyLeader: boolean;
 }
 
 interface IClients {
@@ -42,54 +41,45 @@ wss.on("connection", (_ws: WebSocket) => {
 
     //connection is up, let's add a simple simple event
     ws.on("message", (message: string) => {
+        
         let jsonData;
 
         try{
             jsonData = JSON.parse(message);
         }
         catch(error){
-            console.error("invalid json")
+            console.log("invalid json")
             return
         }
 
         switch(jsonData.method){
             case "connect":
-                clients[ws.uuid].username = safe_tags(jsonData.username);
-                if(Object.keys(clients).length == 1){
-                    clients[ws.uuid].isPartyLeader = true;
-                }
+                clients[ws.uuid].username = jsonData.username;
+                break;
             case "getPlayers":
-                let data:any = {
-                    method:"updateUsers",
-                    data:clients
-                }
+                let data:any = {method: "updateUsers", data: clients};
 
-                ws.send(JSON.stringify(data));
-
+                broadcast(JSON.stringify(data));
+                break;
         }
-
-        console.log(message + ` from id: ${ws.uuid}, username: ${clients[ws.uuid].username}`);
     });
-
-    //send immediatly a feedback to the incoming connection
-    ws.send("connected to game!");
 });
 
-/*
-setInterval(() => {
-    wss.clients.forEach((_ws: WebSocket) => {
-        const ws = _ws as ExtWebSocket;
 
-        if (!ws.isAlive) {
-            console.log("termenated " + ws.uuid);
-            return ws.terminate();
-        }
+// setInterval(() => {
+//     wss.clients.forEach((_ws: WebSocket) => {
+//         const ws = _ws as ExtWebSocket;
 
-        ws.isAlive = false;
-        ws.ping(null, false);
-    });
-}, 10000);
-*/
+//         if (!ws.isAlive) {
+//             console.log("termenated " + ws.uuid);
+//             return ws.terminate();
+//         }
+
+//         ws.isAlive = false;
+//         ws.ping(null, false);
+//     });
+// }, 10000);
+
 
 //start our server
 server.listen(process.env.PORT || 8999, () => {
@@ -110,13 +100,16 @@ function newPlayer(uuid:number): void{
 
     //init default data
     let data:PlayerData = {
-        username: "undefined",
-        isPartyLeader: false,
+        username: "undefined"
     }
 
     clients[uuid] = data;
 }
 
-function safe_tags(str:string) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') ;
+function broadcast(message:string){
+    wss.clients.forEach((_ws:WebSocket) =>{
+        const ws = _ws as ExtWebSocket;
+
+        ws.send(message);
+    })
 }
