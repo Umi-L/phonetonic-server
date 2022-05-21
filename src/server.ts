@@ -1,4 +1,5 @@
 import * as express from "express";
+import e = require("express");
 import * as http from "http";
 import * as WebSocket from "ws";
 
@@ -14,7 +15,8 @@ export interface ExtWebSocket extends WebSocket {
 }
 
 interface PlayerData{
-    username:string
+    username:string;
+    isPartyLeader:boolean;
 }
 
 interface IClients {
@@ -59,42 +61,41 @@ wss.on("connection", (_ws: WebSocket) => {
 
         switch(jsonData.method){
             case "connect":
-                clients[ws.uuid].username = jsonData.username;
+                if (typeof jsonData.username == "string" && jsonData.username != ""){
+                    clients[ws.uuid].username = jsonData.username;
+                }
+                else{
+                    ws.close();
+                }
                 break;
             case "getPlayers":
                 broadcastPlayerUpdate();
                 break;
             case "getSelf":
-
-                console.log("get self recieved")
-
                 let data = {
                     method: "sendSelf",
                     data: clients[ws.uuid]
                 }
 
                 ws.send(JSON.stringify(data));
+            case "startGame":
+                if (clients[ws.uuid].isPartyLeader){
+                    let data = {
+                        method: "startGame",
+                        data: {
+                            drawTime: 60,
+                            promptTime: 25,
+                            gameType: "default"
+                        }
+                    }
+
+                    broadcast(JSON.stringify(data));
+
+                }
 
         }
     });
 });
-
-
-
-
-// setInterval(() => {
-//     wss.clients.forEach((_ws: WebSocket) => {
-//         const ws = _ws as ExtWebSocket;
-
-//         if (!ws.isAlive) {
-//             console.log("termenated " + ws.uuid);
-//             return ws.terminate();
-//         }
-
-//         ws.isAlive = false;
-//         ws.ping(null, false);
-//     });
-// }, 10000);
 
 
 //start our server
@@ -116,7 +117,12 @@ function newPlayer(uuid:number): void{
 
     //init default data
     let data:PlayerData = {
-        username: "undefined"
+        username: "undefined",
+        isPartyLeader: false
+    }
+
+    if (Object.keys(clients).length == 0){
+        data.isPartyLeader = true;
     }
 
     clients[uuid] = data;
